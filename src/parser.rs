@@ -298,7 +298,7 @@ impl<'tokens> Parser<'tokens> {
      * method will optionally take it and return it or result in an
      * Err. Example usage:
      *
-     * let op: Token = self.take_operator()?;
+     * let op: char = self.take_operator()?;
      */
     fn take_operator(&mut self) -> Result<char, String> {
         let token = self.tokens.next();
