@@ -47,13 +47,13 @@ impl<'tokens> Parser<'tokens> {
             tokens: tokenizer.peekable(),
         };
         // TODO lvl0: Ensure no remaining tokens in parser after parsing Expr
-        let mut parse = parser.expr();
-        let next = parser.take_next_token();
+        let mut parse = parser.expr(); //calling this should consume all the tokens in the input, stores the result in 'parse'
+        let next = parser.take_next_token(); //checks to see if there is another token after calling expr()
         match next {
             Ok(token) => {
-                Err(format!("Expected end of input, found {:?}", token))
+                Err(format!("Expected end of input, found {:?}", token)) //if there is another token, throws an error
             },
-            Err(e) => parse,
+            Err(e) => parse, //otherwise, returns the result of calling expr() on parser
         }
     }
 }
@@ -113,6 +113,31 @@ mod public_api {
         }
 
         // TODO: add additional lvl2 tests
+        
+        #[test]
+        fn parse_mul_chain() {
+            let res = Parser::parse(Tokenizer::new("1*2*4")).unwrap();
+            assert_eq!(binop(binop(num(1.0), '*', num(2.0)), '*', num(4.0)), res);
+        }
+        
+        #[test]
+        fn parse_mul_and_div() {
+            let res = Parser::parse(Tokenizer::new("1/2*4")).unwrap();
+            assert_eq!(binop(binop(num(1.0), '/', num(2.0)), '*', num(4.0)), res);
+        }
+
+        #[test]
+        fn parse_with_parens() {
+            let res = Parser::parse(Tokenizer::new("1*(2*4)")).unwrap();
+            assert_eq!(binop(num(1.0), '*', binop(num(2.0), '*', num(4.0))), res);
+        }
+
+        #[test]
+        fn parse_with_bunch_of_parens() {
+            let res = Parser::parse(Tokenizer::new("(1*((2*3)*4))")).unwrap();
+            assert_eq!(binop(num(1.0), '*', binop(binop(num(2.0), '*', num(3.0)), '*', num(4.0))), res);
+        }
+
     }
 
     // TODO: Add tests for lvl > 0
@@ -125,43 +150,43 @@ impl<'tokens> Parser<'tokens> {
     // Level 0
     // Expr     -> Atom
     fn expr(&mut self) -> Result<Expr, String> {
-        if let Some(token) = self.tokens.peek() {
-            self.maybe_mul_div()
+        if let Some(token) = self.tokens.peek() { //looks to see if there is a token in the input
+            self.maybe_mul_div() //if there is, jumps to maybe_mul_div
         } else {
-            Err(format!("Unexpected end of input"))
+            Err(format!("Unexpected end of input")) //throws an error because nothing was entered into input or new expr() from atom() is empty
         }
     }
 
     // Atom     -> '(' Expr ')' | Num
     fn atom(&mut self) -> Result<Expr, String> {
-        let next = self.take_next_token();
+        let next = self.take_next_token(); //takes in the next token
         match next {
             Ok(Token::LParen) => {
-                let expr = self.expr();
-                if let Err(err) = expr {
+                let expr = self.expr(); //if the next token is a LParen, creates a new Expr
+                if let Err(err) = expr { //if this causes an error, recursively returns that error
                     return Err(err);
                 }
-                if let Err(right_paren) = self.consume_token(Token::RParen) {
+                if let Err(right_paren) = self.consume_token(Token::RParen) { //checks for the RParen, consumes it if it exists, throws an error if not
                     return Err(right_paren);
                 }
-                expr
+                expr //returns the expr inside of the parenthesis
             },
-            Ok(Token::Number(c)) => Ok(num(c)),
-            _ => Err(format!("Unexpected end of input"))
+            Ok(Token::Number(c)) => Ok(num(c)), //if its just a number it returns that number as the atom
+            _ => Err(format!("Unexpected end of input")) //returns an error becomes something is missing
         }
     }
 
     // Level 1:
     // MaybeMulDiv  -> Atom MulDivOp?
     fn maybe_mul_div(&mut self) -> Result<Expr, String> {
-        let lhs = self.atom();
-        if let Err(err) = lhs {
+        let lhs = self.atom(); //takes in the lhs argument of the input
+        if let Err(err) = lhs { //is atom() returns an error for lhs, the error is returnes
             return Err(err);
         }
-        if let Some(op) = self.peek_operator() {
-            self.mul_div_op(lhs.unwrap())
+        if let Some(op) = self.peek_operator() { //looks to see if there is an operator
+            self.mul_div_op(lhs.unwrap()) //jumps to mul_div_op if an operator exists
         } else {
-            lhs
+            lhs //just returns the lhs if there is no operator
         }
     }
 
@@ -170,20 +195,20 @@ impl<'tokens> Parser<'tokens> {
      * The lhs: Expr is passed in so that the syntax tree can grow "down" the lhs.
      */
     fn mul_div_op(&mut self, lhs: Expr) -> Result<Expr, String> {
-        let op = self.take_operator();
-        if let Err(err) = op {
+        let op = self.take_operator(); //takes in the operator after lhs
+        if let Err(err) = op { //throws an error if there isn't an operator (but this should never happen)
             return Err(err);
         } else {
-            let operator = op.unwrap();
-            let rhs = self.atom();
-            if let Err(err) = rhs {
+            let operator = op.unwrap(); //unwraps the operator
+            let rhs = self.atom(); //calls atom to find the rhs
+            if let Err(err) = rhs { //if there is no rhs then throws an error with unexpected end of input
                 return Err(err);
             } else {
-                let bin = binop(lhs, operator, rhs.unwrap());
-                if let Some(oop) = self.peek_operator() {
-                    self.mul_div_op(bin)
+                let bin = binop(lhs, operator, rhs.unwrap()); //creates a binop with lhs, op, and rhs
+                if let Some(oop) = self.peek_operator() { //checks to see if there is another op after rhs
+                    self.mul_div_op(bin) //calls mull_div_op if this is the case
                 } else {
-                    Ok(bin)
+                    Ok(bin) //returns the binop if the input is over
                 }
             }
         }
@@ -277,7 +302,7 @@ mod private_api {
         use super::*;
 
         #[test]
-        fn maybe_mul_div_multiplication() {
+        fn maybe_mul_div_division() {
             assert_eq!(
                 Parser::from("1/2/3").maybe_mul_div().unwrap(),
                 binop(binop(num(1.0), '/', num(2.0)), '/', num(3.0))
@@ -297,6 +322,34 @@ mod private_api {
                 binop(binop(num(1.0), '*', num(2.0)), '*', num(3.0))
             );
         }
+
+        #[test]
+        fn maybe_mul_div_multiplication() {
+            assert_eq!(
+                Parser::from("1*2*3").maybe_mul_div().unwrap(),
+                binop(binop(num(1.0), '*', num(2.0)), '*', num(3.0))
+            );
+        }
+
+        #[test]
+        fn mul_div_op_division() {
+            assert_eq!(
+                Parser::from("/2/3").mul_div_op(num(1.0)).unwrap(),
+                binop(binop(num(1.0), '/', num(2.0)), '/', num(3.0))
+            );
+            assert_eq!(
+                Parser::from("/3")
+                    .mul_div_op(binop(num(1.0), '/', num(2.0)))
+                    .unwrap(),
+                binop(binop(num(1.0), '/', num(2.0)), '/', num(3.0))
+            );
+        }
+
+        #[test]
+        fn maybe_mul_div_atom() {
+            assert_eq!(Parser::from("1").maybe_mul_div().unwrap(), num(1.0));
+        }
+
     }
 }
 
