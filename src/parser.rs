@@ -147,7 +147,7 @@ impl<'tokens> Parser<'tokens> {
                 expr
             },
             Ok(Token::Number(c)) => Ok(num(c)),
-            _ => Err(format!("Unexpected token: {:?}", next.unwrap()))
+            _ => Err(format!("Unexpected end of input"))
         }
     }
 
