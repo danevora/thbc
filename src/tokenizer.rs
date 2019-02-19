@@ -4,8 +4,8 @@ use std::str::Chars;
 /**
  * thbc - Tar Heel Basic Calculator
  *
- * Author: <author>
- * ONYEN: <onyen>
+ * Author: Daniel Evora
+ * ONYEN: devora
  *
  * UNC Honor Pledge: I pledge I have received no unauthorized aid
  * on this assignment. I further pledge not to distribute my solution

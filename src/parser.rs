@@ -4,8 +4,8 @@ use std::iter::Peekable;
 /**
  * thbc - Tar Heel Basic Calculator - Parser
  *
- * Author: <author>
- * ONYEN: <onyen>
+ * Author: Daniel Evora
+ * ONYEN: devora
  *
  * UNC Honor Pledge: I pledge I have received no unauthorized aid
  * on this assignment. I further pledge not to distribute my solution
@@ -47,7 +47,14 @@ impl<'tokens> Parser<'tokens> {
             tokens: tokenizer.peekable(),
         };
         // TODO lvl0: Ensure no remaining tokens in parser after parsing Expr
-        parser.expr()
+        let mut parse = parser.expr();
+        let next = parser.take_next_token();
+        match next {
+            Ok(token) => {
+                Err(format!("Expected end of input, found {:?}", token))
+            },
+            Err(e) => parse,
+        }
     }
 }
 
@@ -118,18 +125,44 @@ impl<'tokens> Parser<'tokens> {
     // Level 0
     // Expr     -> Atom
     fn expr(&mut self) -> Result<Expr, String> {
-        Err(format!("lvl0 unimplemented"))
+        if let Some(token) = self.tokens.peek() {
+            self.maybe_mul_div()
+        } else {
+            Err(format!("Unexpected end of input"))
+        }
     }
 
     // Atom     -> '(' Expr ')' | Num
     fn atom(&mut self) -> Result<Expr, String> {
-        Err(format!("lvl0 unimplemented"))
+        let next = self.take_next_token();
+        match next {
+            Ok(Token::LParen) => {
+                let expr = self.expr();
+                if let Err(err) = expr {
+                    return Err(err);
+                }
+                if let Err(right_paren) = self.consume_token(Token::RParen) {
+                    return Err(right_paren);
+                }
+                expr
+            },
+            Ok(Token::Number(c)) => Ok(num(c)),
+            _ => Err(format!("Unexpected token: {:?}", next.unwrap()))
+        }
     }
 
     // Level 1:
     // MaybeMulDiv  -> Atom MulDivOp?
     fn maybe_mul_div(&mut self) -> Result<Expr, String> {
-        Err(format!("lvl1 unimplemented"))
+        let lhs = self.atom();
+        if let Err(err) = lhs {
+            return Err(err);
+        }
+        if let Some(op) = self.peek_operator() {
+            self.mul_div_op(lhs.unwrap())
+        } else {
+            lhs
+        }
     }
 
     // MulDivOp     -> ('*'|'/') Atom
@@ -137,8 +170,25 @@ impl<'tokens> Parser<'tokens> {
      * The lhs: Expr is passed in so that the syntax tree can grow "down" the lhs.
      */
     fn mul_div_op(&mut self, lhs: Expr) -> Result<Expr, String> {
-        Err(format!("lvl1 unimplemented"))
+        let op = self.take_operator();
+        if let Err(err) = op {
+            return Err(err);
+        } else {
+            let operator = op.unwrap();
+            let rhs = self.atom();
+            if let Err(err) = rhs {
+                return Err(err);
+            } else {
+                let bin = binop(lhs, operator, rhs.unwrap());
+                if let Some(oop) = self.peek_operator() {
+                    self.mul_div_op(bin)
+                } else {
+                    Ok(bin)
+                }
+            }
+        }
     }
+
 
     // Level 2: Does not add new rules, rather modifies Level 1's!
 
