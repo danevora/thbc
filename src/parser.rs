@@ -151,7 +151,7 @@ impl<'tokens> Parser<'tokens> {
     // Expr     -> Atom
     fn expr(&mut self) -> Result<Expr, String> {
         if let Some(token) = self.tokens.peek() { //looks to see if there is a token in the input
-            self.maybe_mul_div() //if there is, jumps to maybe_mul_div
+            self.maybe_add_sub() //if there is, jumps to maybe_add_sub
         } else {
             Err(format!("Unexpected end of input")) //throws an error because nothing was entered into input or new expr() from atom() is empty
         }
@@ -162,14 +162,9 @@ impl<'tokens> Parser<'tokens> {
         let next = self.take_next_token(); //takes in the next token
         match next {
             Ok(Token::LParen) => {
-                let expr = self.expr(); //if the next token is a LParen, creates a new Expr
-                if let Err(err) = expr { //if this causes an error, recursively returns that error
-                    return Err(err);
-                }
-                if let Err(right_paren) = self.consume_token(Token::RParen) { //checks for the RParen, consumes it if it exists, throws an error if not
-                    return Err(right_paren);
-                }
-                expr //returns the expr inside of the parenthesis
+                let expr = self.expr()?; //if the next token is a LParen, creates a new Expr
+                let right_paren = self.consume_token(Token::RParen)?;
+                Ok(expr) //returns the expr inside of the parenthesis
             },
             Ok(Token::Number(c)) => Ok(num(c)), //if its just a number it returns that number as the atom
             _ => Err(format!("Unexpected end of input")) //returns an error becomes something is missing
@@ -179,14 +174,15 @@ impl<'tokens> Parser<'tokens> {
     // Level 1:
     // MaybeMulDiv  -> Atom MulDivOp?
     fn maybe_mul_div(&mut self) -> Result<Expr, String> {
-        let lhs = self.atom(); //takes in the lhs argument of the input
-        if let Err(err) = lhs { //is atom() returns an error for lhs, the error is returnes
-            return Err(err);
-        }
-        if let Some(op) = self.peek_operator() { //looks to see if there is an operator
-            self.mul_div_op(lhs.unwrap()) //jumps to mul_div_op if an operator exists
+        let lhs = self.atom()?; //takes in the lhs argument of the input
+        let oper = self.peek_operator();
+        if let Some(op) = oper { //looks to see if there is an operator
+            match oper.unwrap() {
+                '*'|'/' => self.mul_div_op(lhs), //jumps to mul_div_op if operator is * or /
+                _ => Ok(lhs),
+            }
         } else {
-            lhs //just returns the lhs if there is no operator
+            Ok(lhs) //just returns the lhs if there is no operator
         }
     }
 
@@ -195,31 +191,44 @@ impl<'tokens> Parser<'tokens> {
      * The lhs: Expr is passed in so that the syntax tree can grow "down" the lhs.
      */
     fn mul_div_op(&mut self, lhs: Expr) -> Result<Expr, String> {
-        let op = self.take_operator(); //takes in the operator after lhs
-        if let Err(err) = op { //throws an error if there isn't an operator (but this should never happen)
-            return Err(err);
+        let op = self.take_operator()?; //takes in the operator after lhs
+        let rhs = self.atom()?; //calls atom to find the rhs
+        let bin = binop(lhs, op, rhs); //creates a binop with lhs, op, and rhs
+        if let Some(operator) = self.peek_operator() { //checks to see if there is another op after rhs
+            self.mul_div_op(bin) //calls mull_div_op if this is the case
         } else {
-            let operator = op.unwrap(); //unwraps the operator
-            let rhs = self.atom(); //calls atom to find the rhs
-            if let Err(err) = rhs { //if there is no rhs then throws an error with unexpected end of input
-                return Err(err);
-            } else {
-                let bin = binop(lhs, operator, rhs.unwrap()); //creates a binop with lhs, op, and rhs
-                if let Some(oop) = self.peek_operator() { //checks to see if there is another op after rhs
-                    self.mul_div_op(bin) //calls mull_div_op if this is the case
-                } else {
-                    Ok(bin) //returns the binop if the input is over
-                }
-            }
+            Ok(bin) //returns the binop if the input is over
         }
     }
-
-
-    // Level 2: Does not add new rules, rather modifies Level 1's!
 
     // Level 3:
     // MaybeAddSub -> MaybeMulDiv AddSubOp?
     // AddSubOp    -> ('+'|'-') MaybeMulDiv AddSubOp?
+    
+    fn maybe_add_sub(&mut self) -> Result<Expr, String> {
+        let lhs = self.maybe_mul_div()?;
+        let oper = self.peek_operator();
+        if let Some(op) = oper {
+            match oper.unwrap() {
+                '+'|'-' => self.add_sub_op(lhs),
+                _ => Ok(lhs),
+            }
+        } else {
+            Ok(lhs)
+        }
+    }
+
+    fn add_sub_op(&mut self, lhs: Expr) -> Result<Expr, String> {
+        let op = self.take_operator()?;
+        let rhs = self.maybe_mul_div()?;
+        let bin = binop(lhs, op, rhs);
+        if let Some(operator) = self.peek_operator() {
+            self.add_sub_op(bin)
+        } else {
+            Ok(bin)
+        }
+    }
+
 }
 
 #[cfg(test)]
