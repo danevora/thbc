@@ -20,7 +20,26 @@ use super::parser::{binop, num};
  * You are encouraged to use helper functions and recursion where sensible.
  */
 pub fn to_dc(expr: &Expr) -> String {
-    format!("lvl4 - dcgen unimplemented")
+    let mut output: String = recur_to_dc(expr);
+    output.push('p');
+    output
+}
+
+fn recur_to_dc(expr: &Expr) -> String {
+    let mut output: String = String::new();
+    match expr {
+        Expr::BinOp{lhs, op, rhs} => {
+            output.push_str(&recur_to_dc(lhs));
+            output.push_str(&recur_to_dc(rhs));
+            output.push(*op);
+            output.push(' ');
+        },
+        Expr::Num(num) => {
+            output.push_str(&num.to_string());
+            output.push(' ');
+        },
+    }
+    output
 }
 
 #[cfg(test)]
