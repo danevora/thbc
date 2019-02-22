@@ -20,7 +20,7 @@ use super::parser::{binop, num};
  * You are encouraged to use helper functions and recursion where sensible.
  */
 pub fn to_dc(expr: &Expr) -> String {
-    let output: String = recur_to_dc(expr); //creates a string to return, calls helper since this would be hard to do recursivley in one function
+    let mut output: String = recur_to_dc(expr); //creates a string to return, calls helper since this would be hard to do recursivley in one function
     output.push('p'); //adds the print onto the end
     output //returns string
 }
