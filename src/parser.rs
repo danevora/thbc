@@ -141,7 +141,38 @@ mod public_api {
     }
 
     mod lvl3 {
-    
+        use super::*;
+
+        #[test]
+        fn parse_add() {
+            let res = Parser::parse(Tokenizer::new("1+2")).unwrap();
+            assert_eq!(binop(num(1.0), '+', num(2.0)), res);
+        }
+
+        #[test]
+        fn parse_sub() {
+            let res = Parser::parse(Tokenizer::new("1-2")).unwrap();
+            assert_eq!(binop(num(1.0), '-', num(2.0)), res);
+        }
+
+        #[test]
+        fn parse_multiple_add_or_sub() {
+            let res = Parser::parse(Tokenizer::new("1+2-3+4-5")).unwrap();
+            assert_eq!(binop(binop(binop(binop(num(1.0), '+', num(2.0)), '-', num(3.0)), '+', num(4.0)), '-', num(5.0)), res);
+        }
+
+        #[test]
+        fn parse_add_and_mult() {
+            let res = Parser::parse(Tokenizer::new("1+2*3")).unwrap();
+            assert_eq!(binop(num(1.0), '+', binop(num(2.0), '*', num(3.0))), res);
+        }
+
+        #[test]
+        fn parse_stuff() {
+            let res = Parser::parse(Tokenizer::new("(1+2)/(4-3)")).unwrap();
+            assert_eq!(binop(binop(num(1.0), '+', num(2.0)), '/', binop(num(4.0), '-', num(3.0))), res);
+        }
+        
     }
     // TODO: Add tests for lvl > 0
 }
@@ -209,26 +240,26 @@ impl<'tokens> Parser<'tokens> {
     // AddSubOp    -> ('+'|'-') MaybeMulDiv AddSubOp?
     
     fn maybe_add_sub(&mut self) -> Result<Expr, String> {
-        let lhs = self.maybe_mul_div()?;
-        let oper = self.peek_operator();
+        let lhs = self.maybe_mul_div()?; //takes either a multiplication or division binop or single number
+        let oper = self.peek_operator(); //checks to see if there is an operator
         if let Some(op) = oper {
             match oper.unwrap() {
-                '+'|'-' => self.add_sub_op(lhs),
-                _ => Ok(lhs),
+                '+'|'-' => self.add_sub_op(lhs), //if the operator is + or -, jumps to add_sub_op
+                _ => Ok(lhs), //otherwise returns lhs (this default case should never happen though)
             }
         } else {
-            Ok(lhs)
+            Ok(lhs) //returns lhs if there is no other operator
         }
     }
 
     fn add_sub_op(&mut self, lhs: Expr) -> Result<Expr, String> {
-        let op = self.take_operator()?;
-        let rhs = self.maybe_mul_div()?;
-        let bin = binop(lhs, op, rhs);
-        if let Some(operator) = self.peek_operator() {
-            self.add_sub_op(bin)
+        let op = self.take_operator()?; //takes in the + or -
+        let rhs = self.maybe_mul_div()?; //either returns another binop of * or / or just a number on the other side of the + or -
+        let bin = binop(lhs, op, rhs); //creates the binop
+        if let Some(operator) = self.peek_operator() { 
+            self.add_sub_op(bin) //if the operator exists then we call add_sub_op again since it must be this, since we already ran maybe_mul_div
         } else {
-            Ok(bin)
+            Ok(bin) //returns the binop if there is no other operator
         }
     }
 
@@ -362,6 +393,82 @@ mod private_api {
             assert_eq!(Parser::from("1").maybe_mul_div().unwrap(), num(1.0));
         }
 
+    }
+
+    mod lvl3 {
+        use super::*;
+
+        #[test]
+        fn maybe_add_sub_with_mult() {
+            assert_eq!(
+                Parser::from("1*2*3").maybe_add_sub().unwrap(),
+                binop(binop(num(1.0), '*', num(2.0)), '*', num(3.0))
+            );
+        }
+
+        #[test]
+        fn maybe_add_sub_with_add_and_sub() {
+            assert_eq!(
+                Parser::from("1+2-3").maybe_add_sub().unwrap(),
+                binop(binop(num(1.0), '+', num(2.0)), '-', num(3.0))
+            );
+        }
+
+        #[test]
+        fn maybe_add_sub_with_both() {
+            assert_eq!(
+                Parser::from("1+2*3").maybe_add_sub().unwrap(),
+                binop(num(1.0), '+', binop(num(2.0), '*', num(3.0)))
+            );
+        }
+        
+        #[test]
+        fn add_sub_op_with_div() {
+            assert_eq!(
+                Parser::from("/2/3").mul_div_op(num(1.0)).unwrap(),
+                binop(binop(num(1.0), '/', num(2.0)), '/', num(3.0))
+            );
+            assert_eq!(
+                Parser::from("/3")
+                    .mul_div_op(binop(num(1.0), '/', num(2.0)))
+                    .unwrap(),
+                binop(binop(num(1.0), '/', num(2.0)), '/', num(3.0))
+            );  
+        }
+
+        #[test]
+        fn add_sub_op_with_sub() {
+            assert_eq!(
+                Parser::from("-2-3").mul_div_op(num(1.0)).unwrap(),
+                binop(binop(num(1.0), '-', num(2.0)), '-', num(3.0))
+            );
+            assert_eq!(
+                Parser::from("-3")
+                    .mul_div_op(binop(num(1.0), '-', num(2.0)))
+                    .unwrap(),
+                binop(binop(num(1.0), '-', num(2.0)), '-', num(3.0))
+            );
+        }
+
+        #[test]
+        fn add_sub_op_with_both() {
+            assert_eq!(
+                Parser::from("*2+3").mul_div_op(num(1.0)).unwrap(),
+                binop(binop(num(1.0), '*', num(2.0)), '+', num(3.0))
+            );
+            assert_eq!(
+                Parser::from("+3")
+                    .mul_div_op(binop(num(1.0), '*', num(2.0)))
+                    .unwrap(),
+                binop(binop(num(1.0), '*', num(2.0)), '+', num(3.0))
+            );
+        }
+
+        #[test]
+        fn maybe_add_sub_with_atom() {
+            assert_eq!(Parser::from("1").maybe_add_sub().unwrap(), num(1.0));
+        }
+        
     }
 }
 

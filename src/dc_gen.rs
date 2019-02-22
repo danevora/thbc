@@ -20,23 +20,23 @@ use super::parser::{binop, num};
  * You are encouraged to use helper functions and recursion where sensible.
  */
 pub fn to_dc(expr: &Expr) -> String {
-    let mut output: String = recur_to_dc(expr);
-    output.push('p');
-    output
+    let output: String = recur_to_dc(expr); //creates a string to return, calls helper since this would be hard to do recursivley in one function
+    output.push('p'); //adds the print onto the end
+    output //returns string
 }
 
 fn recur_to_dc(expr: &Expr) -> String {
-    let mut output: String = String::new();
-    match expr {
+    let mut output: String = String::new(); //creates a new string
+    match expr { //sees if the expr is a binop or number
         Expr::BinOp{lhs, op, rhs} => {
-            output.push_str(&recur_to_dc(lhs));
-            output.push_str(&recur_to_dc(rhs));
-            output.push(*op);
-            output.push(' ');
+            output.push_str(&recur_to_dc(lhs)); //moves down recursively until a number is found
+            output.push_str(&recur_to_dc(rhs)); //same but for the right side
+            output.push(*op); //adds the operator
+            output.push(' '); //adds a space
         },
         Expr::Num(num) => {
-            output.push_str(&num.to_string());
-            output.push(' ');
+            output.push_str(&num.to_string()); //adds the number to output
+            output.push(' '); //adds a space after each number
         },
     }
     output
@@ -60,6 +60,14 @@ mod to_dc {
         }
 
         // TODO: Add additional tests
-
+        
+        #[test]
+        fn dc_multiple_ops() {
+            assert_eq!(
+                "1 1 / 1 - p",
+                to_dc(&binop(binop(num(1.0), '/', num(1.0)), '-', num(1.0)))
+            );
+        }
+        
     }
 }
