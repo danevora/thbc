@@ -1,0 +1,3 @@
+**thbc**(Daniel Evora)
+
+thbc (or tarheel basic calculator) is a Rust implementation of the commonly used basic calculator used in a linux environment. Input for the prorgam is taken from stdin, and tokenized in the tokenizer.rs file. Whiel this is happening, the parser.rs creates an AST for the computer to use in creating a meaningful understanding of the input. Then, this input is converted to reverse-polish notation and this is piped to thdc (tarheel desk calculator) as stdin. thdc performs the necessary computations, and the results are printed to the terminal as stdout. If there is an unexpected input, an error will be printed to the screen as stderr. 
